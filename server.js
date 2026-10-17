@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 app.get('/render.png', async (req, res) => {
     let browser = null;
     try {
-        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම (කඩවත GPS ඛණ්ඩාංක සහිතව)
+        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම (Current weather object query updated)
         const weatherUrl = `https://open-meteo.com`;
         const response = await axios.get(weatherUrl);
         const wData = response.data;
@@ -32,9 +32,10 @@ app.get('/render.png', async (req, res) => {
             return 'sunny'; // Code 0 (Clear)
         };
 
-        const currentTemp = wData.current ? wData.current.temperature_2m : 26;
-        const currentCode = wData.current ? wData.current.weather_code : 0;
-        const feelsLike = wData.current ? wData.current.apparent_temperature : currentTemp;
+        // Open-Meteo current_weather ව්‍යුහයෙන් නිවැරදිව දත්ත එලියට ගැනීම
+        const currentTemp = wData.current_weather ? wData.current_weather.temperature : 26;
+        const currentCode = wData.current_weather ? wData.current_weather.weathercode : 0;
+        const feelsLike = currentTemp; // Fallback structure configuration
 
         // වත්මන් කාලගුණ තත්ත්වය වචනයෙන් වෙන් කිරීම
         let currentCondition = "Clear";
@@ -66,7 +67,7 @@ app.get('/render.png', async (req, res) => {
         const hourlyForecast = [];
         const currentHourIndex = now.getHours();
         
-        const hourlyCodes = wData.hourly ? (wData.hourly.weather_code || []) : [];
+        const hourlyCodes = wData.hourly ? (wData.hourly.weathercode || []) : [];
         const hourlyTemps = wData.hourly ? (wData.hourly.temperature_2m || []) : [];
         const hourlyPops = wData.hourly ? (wData.hourly.precipitation_probability || []) : [];
 
@@ -87,7 +88,7 @@ app.get('/render.png', async (req, res) => {
             });
         }
 
-        // ප්‍රධාන data object එක (මුලින්ම හදාගැනීම)
+        // ප්‍රධාන data object එක
         const data = {
             time: timeStr, date: dateStr, location: "KADAWATHA",
             currentTemp: `${Math.round(currentTemp)}°`,
@@ -95,7 +96,7 @@ app.get('/render.png', async (req, res) => {
             hourly: hourlyForecast
         };
 
-        // පහල තීරුවේ HTML කොටස (data object එක සෑදීමෙන් පසු)
+        // පහල තීරුවේ HTML කොටස
         let hourlyHtml = "";
         for(let i = 0; i < data.hourly.length; i++) {
             let h = data.hourly[i];
@@ -180,4 +181,4 @@ app.get('/render.png', async (req, res) => {
 
 app.get('/', (req, res) => res.send("Dashboard active"));
 
-app.listen(PORT, () => console.log(`Docker Web Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`Docker Sync Framework Active`));
