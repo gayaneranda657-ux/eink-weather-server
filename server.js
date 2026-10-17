@@ -7,6 +7,7 @@ const PORT = process.env.PORT || 3000;
 app.get('/render.png', async (req, res) => {
     let browser = null;
     try {
+        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම
         const weatherUrl = `https://open-meteo.com`;
         const response = await axios.get(weatherUrl);
         const wData = response.data;
@@ -15,11 +16,12 @@ app.get('/render.png', async (req, res) => {
         const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
+        // නිවැරදි කරන ලද WMO Weather Codes ලිස්ට් එක
         const getIconType = (code) => {
-            if (.includes(code)) return 'sunny';
-            if (.includes(code)) return 'cloudy';
-            if (.includes(code)) return 'rain';
-            if (.includes(code)) return 'thunder';
+            if ([0, 1].includes(code)) return 'sunny';
+            if ([2, 3, 45, 48].includes(code)) return 'cloudy';
+            if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rain';
+            if ([95, 96, 99].includes(code)) return 'thunder';
             return 'cloudy';
         };
 
@@ -28,14 +30,14 @@ app.get('/render.png', async (req, res) => {
         const feelsLike = wData.current ? wData.current.apparent_temperature : currentTemp;
 
         let currentCondition = "Clear";
-        if (.includes(currentCode)) currentCondition = "Thunder";
-        else if (.includes(currentCode)) currentCondition = "Rain";
-        else if (.includes(currentCode)) currentCondition = "Cloudy";
+        if ([95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
+        else if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
+        else if ([2, 3, 45, 48].includes(currentCode)) currentCondition = "Cloudy";
 
         const hourlyForecast = [];
         const currentHourIndex = now.getHours();
         
-        const hourlyCodes = wData.hourly ? (wData.hourly.weather_code || wData.hourly.weathercode || []) : [];
+        const hourlyCodes = wData.hourly ? (wData.hourly.weather_code || []) : [];
         const hourlyTemps = wData.hourly ? (wData.hourly.temperature_2m || []) : [];
         const hourlyPops = wData.hourly ? (wData.hourly.precipitation_probability || []) : [];
 
@@ -116,7 +118,6 @@ app.get('/render.png', async (req, res) => {
         </html>
         `;
 
-        // Optimized for Docker Environment execution path cleanly
         browser = await puppeteer.launch({ 
             executablePath: '/usr/bin/google-chrome',
             headless: 'new', 
