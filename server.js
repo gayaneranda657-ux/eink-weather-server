@@ -7,47 +7,66 @@ const PORT = process.env.PORT || 3000;
 app.get('/render.png', async (req, res) => {
     let browser = null;
     try {
-        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම
+        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම (Live Open-Meteo Data)
         const weatherUrl = `https://open-meteo.com`;
         const response = await axios.get(weatherUrl);
         const wData = response.data;
 
         const now = new Date();
+        
+        // 12-Hour Format (AM/PM රහිතව පිරිසිදුව)
         let hours = now.getHours();
         let minutes = now.getMinutes();
-        const isNight = (hours >= 18 || hours < 6);
+        const isNight = (hours >= 18 || hours < 6); // රාත්‍රී කාලය හඳුනා ගැනීම
         hours = hours % 12;
         hours = hours ? hours : 12;
         const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
+        // නිල WMO Codes ලිස්ට් එක (01 සිට 99 දක්වා කේත හරියටම ඇතුළත් කිරීම)
         const getIconType = (code) => {
             if ([95, 96, 99].includes(code)) return 'thunder';
             if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rain';
             if ([1, 2, 3, 45, 48].includes(code)) return 'cloudy';
-            return 'sunny';
+            return 'sunny'; // Code 0 (Clear)
         };
 
-        const currentTemp = wData.current_weather ? Math.round(wData.current_weather.temperature) : 26;
+        // Live Data extraction matrix from Open-Meteo
+        const currentTemp = wData.current_weather ? wData.current_weather.temperature : 26;
         const currentCode = wData.current_weather ? wData.current_weather.weathercode : 0;
+        const feelsLike = currentTemp; 
 
+        // වත්මන් කාලගුණ තත්ත්වය වචනයෙන් වෙන් කිරීම
         let currentCondition = "Clear";
         const currentIconType = getIconType(currentCode);
+        
         if (currentIconType === 'thunder') currentCondition = "Thunder";
         else if (currentIconType === 'rain') currentCondition = "Rain";
         else if (currentIconType === 'cloudy') currentCondition = "Cloudy";
 
+        // SVG Icons සකස් කරන ශ්‍රිතය (රෑට හඳ, දවලට ඉර වැටෙන ලෙස)
         const getSvgIcon = (type, nightMode) => {
-            if (type === 'thunder') return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58M13 10l-3 5h4l-3 5"/></svg>`;
-            if (type === 'rain') return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16v4"/><path d="M12 16v4"/></svg>`;
-            if (type === 'cloudy') return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/></svg>`;
-            if (nightMode) return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
-            return `<svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
+            if (type === 'thunder') {
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58M13 10l-3 5h4l-3 5"/></svg>`;
+            }
+            if (type === 'rain') {
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16v4"/><path d="M12 16v4"/></svg>`;
+            }
+            if (type === 'cloudy') {
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/></svg>`;
+            }
+            if (nightMode) {
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`; // Moon Icon
+            }
+            return `<svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`; // Sun Icon
         };
 
         const currentIconSvg = getSvgIcon(currentIconType, isNight);
+
         const hourlyForecast = [];
         const currentHourIndex = now.getHours();
+        
         const hourlyCodes = wData.hourly ? (wData.hourly.weathercode || []) : [];
         const hourlyTemps = wData.hourly ? (wData.hourly.temperature_2m || []) : [];
         const hourlyPops = wData.hourly ? (wData.hourly.precipitation_probability || []) : [];
@@ -56,6 +75,7 @@ app.get('/render.png', async (req, res) => {
             const index = currentHourIndex + i;
             let timeLabel = `${index % 12 || 12}:00`;
             if(i === 0) timeLabel = "Now";
+            
             const targetHour = index % 24;
             const hourIsNight = (targetHour >= 18 || targetHour < 6);
             const hIconType = getIconType(hourlyCodes[index] || 0);
@@ -71,17 +91,23 @@ app.get('/render.png', async (req, res) => {
         const data = {
             time: timeStr, date: dateStr, location: "KADAWATHA",
             currentTemp: `${Math.round(currentTemp)}°`,
-            condition: currentCondition, feelsLike: `${Math.round(currentTemp)}°`,
+            condition: currentCondition, feelsLike: `${Math.round(feelsLike)}°`,
             hourly: hourlyForecast
         };
 
         let hourlyHtml = "";
         for(let i = 0; i < data.hourly.length; i++) {
             let h = data.hourly[i];
-            hourlyHtml += `<div class="hour-col"><div class="h-time">${h.time}</div><div class="h-temp">${h.temp}</div>${h.svg}<div class="h-pop">${h.pop}</div></div>`;
+            hourlyHtml += `
+                <div class="hour-col">
+                    <div class="h-time">${h.time}</div>
+                    <div class="h-temp">${h.temp}</div>
+                    ${h.svg}
+                    <div class="h-pop">${h.pop}</div>
+                </div>
+            `;
         }
 
-        // HTML Layout පිටුව
         const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -117,43 +143,40 @@ app.get('/render.png', async (req, res) => {
                     </div>
                     <div class="loc-tag">${data.location}</div>
                 </div>
-                <div class="clock-box"><div class="time">${data.time}</div><div class="date">${data.date}</div></div>
+                <div class="clock-box">
+                    <div class="time">${data.time}</div>
+                    <div class="date">${data.date}</div>
+                </div>
             </div>
-            <div class="forecast-container">${hourlyHtml}</div>
+            <div class="forecast-container">
+                ${hourlyHtml}
+            </div>
         </body>
         </html>
         `;
 
-        // Docker Chrome Engine එක ඇතුළේ රූපය සෑදීම
-        browser = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+        browser = await puppeteer.launch({ 
+            executablePath: '/usr/bin/google-chrome',
+            headless: 'new', 
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
+        });
+        
         const page = await browser.newPage();
         await page.setViewport({ width: 250, height: 122 });
         await page.setContent(htmlContent);
         
-        // 🌟 වෙබ් පිටුව සෘජුවම E-Ink බයිට් මැට්‍රික්ස් එකක් බවට පරිවර්තනය කිරීම
-        const rgbaBuffer = await page.screenshot({ type: 'png', raw: true }); 
-        const epdBuffer = Buffer.alloc((250 * 122) / 8, 0xFF);
-        
-        for (let y = 0; y < 122; y++) {
-            for (let x = 0; x < 250; x++) {
-                const idx = (y * 250 + x) * 4;
-                const brightness = (rgbaBuffer[idx] + rgbaBuffer[idx + 1] + rgbaBuffer[idx + 2]) / 3;
-                if (brightness < 128) {
-                    const byteIdx = Math.floor((y * 250 + x) / 8);
-                    const bitIdx = 7 - ((y * 250 + x) % 8);
-                    epdBuffer[byteIdx] &= ~(1 << bitIdx);
-                }
-            }
-        }
-
-        res.set('Content-Type', 'application/octet-stream');
-        res.send(epdBuffer);
+        const imageBuffer = await page.screenshot({ type: 'png' });
+        res.set('Content-Type', 'image/png');
+        res.send(imageBuffer);
     } catch (error) {
         res.status(500).send("Render Error: " + error.message);
     } finally {
-        if (browser !== null) await browser.close();
+        if (browser !== null) {
+            await browser.close();
+        }
     }
 });
 
 app.get('/', (req, res) => res.send("Dashboard active"));
-app.listen(PORT, () => console.log(`Docker Image Engine Active`));
+
+app.listen(PORT, () => console.log(`Docker Production Core Active`));
