@@ -16,10 +16,9 @@ app.get('/render.png', async (req, res) => {
         const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
-        // නිවැරදි කරන ලද WMO Weather Codes ලිස්ට් එක
         const getIconType = (code) => {
-            if ([0, 1].includes(code)) return 'sunny';
-            if ([2, 3, 45, 48].includes(code)) return 'cloudy';
+            if ([0].includes(code)) return 'sunny';
+            if ([1, 2, 3, 45, 48].includes(code)) return 'cloudy';
             if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rain';
             if ([95, 96, 99].includes(code)) return 'thunder';
             return 'cloudy';
@@ -32,7 +31,7 @@ app.get('/render.png', async (req, res) => {
         let currentCondition = "Clear";
         if ([95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
         else if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
-        else if ([2, 3, 45, 48].includes(currentCode)) currentCondition = "Cloudy";
+        else if ([1, 2, 3, 45, 48].includes(currentCode)) currentCondition = "Cloudy";
 
         const hourlyForecast = [];
         const currentHourIndex = now.getHours();
@@ -108,7 +107,7 @@ app.get('/render.png', async (req, res) => {
                     return `
                         <div class="hour-col">
                             <div class="h-time">\${h.time}</div>
-                            <div class="h-temp">\${h.temp}</div>\${svgIcon}
+                            <div class="h-temp">\({h.temp}</div>\){svgIcon}
                             <div class="h-pop red">\${h.pop}</div>
                         </div>
                     `;
