@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 app.get('/render.png', async (req, res) => {
     let browser = null;
     try {
-        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම
+        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම (Live Open-Meteo Data)
         const weatherUrl = `https://open-meteo.com`;
         const response = await axios.get(weatherUrl);
         const wData = response.data;
@@ -32,11 +32,10 @@ app.get('/render.png', async (req, res) => {
             return 'sunny'; // Code 0 (Clear)
         };
 
+        // Live Data extraction matrix from Open-Meteo
         const currentTemp = wData.current_weather ? wData.current_weather.temperature : 26;
-        const feelsLike = currentTemp;
-
-        // 🌟 TESTING MODE: Forces the dashboard to display RAIN directly
-        const currentCode = 65; 
+        const currentCode = wData.current_weather ? wData.current_weather.weathercode : 0;
+        const feelsLike = currentTemp; 
 
         // වත්මන් කාලගුණ තත්ත්වය වචනයෙන් වෙන් කිරීම
         let currentCondition = "Clear";
@@ -79,20 +78,16 @@ app.get('/render.png', async (req, res) => {
             
             const targetHour = index % 24;
             const hourIsNight = (targetHour >= 18 || targetHour < 6);
-            
-            // Force rain on the first column for test visual consistency
-            const hCode = (i === 0) ? 65 : (hourlyCodes[index] || 0);
-            const hIconType = getIconType(hCode);
+            const hIconType = getIconType(hourlyCodes[index] || 0);
 
             hourlyForecast.push({
                 time: timeLabel,
                 temp: `${Math.round(hourlyTemps[index] || currentTemp)}°`,
-                pop: (i === 0) ? "85%" : `${hourlyPops[index] || 0}%`,
+                pop: `${hourlyPops[index] || 0}%`,
                 svg: getSvgIcon(hIconType, hourIsNight)
             });
         }
 
-        // ප්‍රධාන data object එක
         const data = {
             time: timeStr, date: dateStr, location: "KADAWATHA",
             currentTemp: `${Math.round(currentTemp)}°`,
@@ -100,7 +95,6 @@ app.get('/render.png', async (req, res) => {
             hourly: hourlyForecast
         };
 
-        // පහල තීරුවේ HTML කොටස
         let hourlyHtml = "";
         for(let i = 0; i < data.hourly.length; i++) {
             let h = data.hourly[i];
@@ -185,4 +179,4 @@ app.get('/render.png', async (req, res) => {
 
 app.get('/', (req, res) => res.send("Dashboard active"));
 
-app.listen(PORT, () => console.log(`Docker Live Build Sync Active`));
+app.listen(PORT, () => console.log(`Docker Production Core Active`));
