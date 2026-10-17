@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 app.get('/render.png', async (req, res) => {
     let browser = null;
     try {
-        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම (Current weather parameters updated)
+        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම (Updated to the correct 2026 open-meteo array structures)
         const weatherUrl = `https://open-meteo.com`;
         const response = await axios.get(weatherUrl);
         const wData = response.data;
@@ -16,31 +16,30 @@ app.get('/render.png', async (req, res) => {
         const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
-        // Safe fallback for weather codes
         const getIconType = (code) => {
             if ([0, 1, 2, 3].includes(code)) return 'sunny';
-            if ([45, 48, 51, 53, 55].includes(code)) return 'cloudy';
-            if ([61, 63, 65, 80, 81, 82].includes(code)) return 'rain';
+            if ([45, 48].includes(code)) return 'cloudy';
+            if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return 'rain';
             if ([95, 96, 99].includes(code)) return 'thunder';
             return 'cloudy';
         };
 
-        // Handle both API response formats seamlessly
-        const currentCode = wData.current_weather ? wData.current_weather.weathercode : 0;
+        // Safety fallback checks for data extraction
+        const currentTemp = wData.current ? wData.current.temperature_2m : 26;
+        const currentCode = wData.current ? wData.current.weather_code : 0;
+        const feelsLike = wData.current ? wData.current.apparent_temperature : currentTemp;
+
         let currentCondition = "Clear";
         if ([95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
-        else if ([61, 63, 65, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
-        else if ([45, 48, 51, 53, 55].includes(currentCode)) currentCondition = "Cloudy";
-
-        const currentTemp = wData.current_weather ? wData.current_weather.temperature : 26;
+        else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
+        else if ([45, 48].includes(currentCode)) currentCondition = "Cloudy";
 
         const hourlyForecast = [];
         const currentHourIndex = now.getHours();
         
-        // Safety check for hourly arrays
-        const hourlyCodes = wData.hourly.weathercode || wData.hourly.weather_code || [];
-        const hourlyTemps = wData.hourly.temperature_2m || [];
-        const hourlyPops = wData.hourly.precipitation_probability || [];
+        const hourlyCodes = wData.hourly ? (wData.hourly.weather_code || wData.hourly.weathercode || []) : [];
+        const hourlyTemps = wData.hourly ? (wData.hourly.temperature_2m || []) : [];
+        const hourlyPops = wData.hourly ? (wData.hourly.precipitation_probability || []) : [];
 
         for(let i=0; i<4; i++) {
             const index = currentHourIndex + i;
@@ -58,7 +57,7 @@ app.get('/render.png', async (req, res) => {
         const data = {
             time: timeStr, date: dateStr, location: "KADAWATHA",
             currentTemp: `${Math.round(currentTemp)}°`,
-            condition: currentCondition, feelsLike: `${Math.round(currentTemp)}°`,
+            condition: currentCondition, feelsLike: `${Math.round(feelsLike)}°`,
             hourly: hourlyForecast
         };
 
@@ -109,9 +108,9 @@ app.get('/render.png', async (req, res) => {
                     }
                     return `
                         <div class="hour-col">
-                            <div class="h-time">\${h.time}</div>
-                            <div class="h-temp">\${h.temp}</div>\${svgIcon}
-                            <div class="h-pop red">\${h.pop}</div>
+                            <div class="h-time">\ref{h.time}</div>
+                            <div class="h-temp">\ref{h.temp}</div>\${svgIcon}
+                            <div class="h-pop red">\ref{h.pop}</div>
                         </div>
                     `;
                 }).join('')}
