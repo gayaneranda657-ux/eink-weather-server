@@ -7,7 +7,6 @@ const PORT = process.env.PORT || 3000;
 app.get('/render.png', async (req, res) => {
     let browser = null;
     try {
-        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම (Updated to the correct 2026 open-meteo array structures)
         const weatherUrl = `https://open-meteo.com`;
         const response = await axios.get(weatherUrl);
         const wData = response.data;
@@ -17,22 +16,21 @@ app.get('/render.png', async (req, res) => {
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
         const getIconType = (code) => {
-            if ([0, 1, 2, 3].includes(code)) return 'sunny';
-            if ([45, 48].includes(code)) return 'cloudy';
-            if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return 'rain';
-            if ([95, 96, 99].includes(code)) return 'thunder';
+            if (.includes(code)) return 'sunny';
+            if (.includes(code)) return 'cloudy';
+            if (.includes(code)) return 'rain';
+            if (.includes(code)) return 'thunder';
             return 'cloudy';
         };
 
-        // Safety fallback checks for data extraction
         const currentTemp = wData.current ? wData.current.temperature_2m : 26;
         const currentCode = wData.current ? wData.current.weather_code : 0;
         const feelsLike = wData.current ? wData.current.apparent_temperature : currentTemp;
 
         let currentCondition = "Clear";
-        if ([95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
-        else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
-        else if ([45, 48].includes(currentCode)) currentCondition = "Cloudy";
+        if (.includes(currentCode)) currentCondition = "Thunder";
+        else if (.includes(currentCode)) currentCondition = "Rain";
+        else if (.includes(currentCode)) currentCondition = "Cloudy";
 
         const hourlyForecast = [];
         const currentHourIndex = now.getHours();
@@ -61,7 +59,6 @@ app.get('/render.png', async (req, res) => {
             hourly: hourlyForecast
         };
 
-        // 2. HTML පිටුව සකස් කිරීම
         const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -108,9 +105,9 @@ app.get('/render.png', async (req, res) => {
                     }
                     return `
                         <div class="hour-col">
-                            <div class="h-time">\ref{h.time}</div>
-                            <div class="h-temp">\ref{h.temp}</div>\${svgIcon}
-                            <div class="h-pop red">\ref{h.pop}</div>
+                            <div class="h-time">\${h.time}</div>
+                            <div class="h-temp">\${h.temp}</div>\${svgIcon}
+                            <div class="h-pop red">\${h.pop}</div>
                         </div>
                     `;
                 }).join('')}
@@ -119,8 +116,13 @@ app.get('/render.png', async (req, res) => {
         </html>
         `;
 
-        // 3. Puppeteer මඟින් ස්ක්‍රීන්ෂොට් එකක් ගෙන PNG එකක් ලෙස යැවීම
-        browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        // Optimized for Docker Environment execution path cleanly
+        browser = await puppeteer.launch({ 
+            executablePath: '/usr/bin/google-chrome',
+            headless: 'new', 
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
+        });
+        
         const page = await browser.newPage();
         await page.setViewport({ width: 250, height: 122 });
         await page.setContent(htmlContent);
@@ -137,4 +139,6 @@ app.get('/render.png', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => console.log(`Render active on port ${PORT}`));
+app.get('/', (req, res) => res.send("Dashboard active"));
+
+app.listen(PORT, () => console.log(`Docker Web Engine active on port ${PORT}`));
