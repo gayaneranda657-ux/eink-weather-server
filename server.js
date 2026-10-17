@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 app.get('/render.png', async (req, res) => {
     let browser = null;
     try {
-        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම
+        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම (Current weather parameters updated)
         const weatherUrl = `https://open-meteo.com`;
         const response = await axios.get(weatherUrl);
         const wData = response.data;
@@ -16,22 +16,32 @@ app.get('/render.png', async (req, res) => {
         const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
+        // Safe fallback for weather codes
         const getIconType = (code) => {
-            if ([0, 1].includes(code)) return 'sunny';
-            if ([2, 3, 45, 48].includes(code)) return 'cloudy';
-            if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) return 'rain';
+            if ([0, 1, 2, 3].includes(code)) return 'sunny';
+            if ([45, 48, 51, 53, 55].includes(code)) return 'cloudy';
+            if ([61, 63, 65, 80, 81, 82].includes(code)) return 'rain';
             if ([95, 96, 99].includes(code)) return 'thunder';
             return 'cloudy';
         };
 
-        const currentCode = wData.current.weather_code;
+        // Handle both API response formats seamlessly
+        const currentCode = wData.current_weather ? wData.current_weather.weathercode : 0;
         let currentCondition = "Clear";
         if ([95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
-        else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
-        else if ([2, 3, 45, 48].includes(currentCode)) currentCondition = "Cloudy";
+        else if ([61, 63, 65, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
+        else if ([45, 48, 51, 53, 55].includes(currentCode)) currentCondition = "Cloudy";
+
+        const currentTemp = wData.current_weather ? wData.current_weather.temperature : 26;
 
         const hourlyForecast = [];
         const currentHourIndex = now.getHours();
+        
+        // Safety check for hourly arrays
+        const hourlyCodes = wData.hourly.weathercode || wData.hourly.weather_code || [];
+        const hourlyTemps = wData.hourly.temperature_2m || [];
+        const hourlyPops = wData.hourly.precipitation_probability || [];
+
         for(let i=0; i<4; i++) {
             const index = currentHourIndex + i;
             let timeLabel = `${index}:00`;
@@ -39,16 +49,16 @@ app.get('/render.png', async (req, res) => {
             
             hourlyForecast.push({
                 time: timeLabel,
-                temp: `${Math.round(wData.hourly.temperature_2m[index])}°`,
-                pop: `${wData.hourly.precipitation_probability[index]}%`,
-                type: getIconType(wData.hourly.weather_code[index])
+                temp: `${Math.round(hourlyTemps[index] || currentTemp)}°`,
+                pop: `${hourlyPops[index] || 0}%`,
+                type: getIconType(hourlyCodes[index] || 0)
             });
         }
 
         const data = {
             time: timeStr, date: dateStr, location: "KADAWATHA",
-            currentTemp: `${Math.round(wData.current.temperature_2m)}°`,
-            condition: currentCondition, feelsLike: `${Math.round(wData.current.apparent_temperature)}°`,
+            currentTemp: `${Math.round(currentTemp)}°`,
+            condition: currentCondition, feelsLike: `${Math.round(currentTemp)}°`,
             hourly: hourlyForecast
         };
 
@@ -100,7 +110,7 @@ app.get('/render.png', async (req, res) => {
                     return `
                         <div class="hour-col">
                             <div class="h-time">\${h.time}</div>
-                            <div class="h-temp">\({h.temp}</div>\){svgIcon}
+                            <div class="h-temp">\${h.temp}</div>\${svgIcon}
                             <div class="h-pop red">\${h.pop}</div>
                         </div>
                     `;
@@ -128,4 +138,4 @@ app.get('/render.png', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => console.log(`Render Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`Render active on port ${PORT}`));
