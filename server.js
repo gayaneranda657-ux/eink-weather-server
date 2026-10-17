@@ -13,13 +13,20 @@ app.get('/render.png', async (req, res) => {
         const wData = response.data;
 
         const now = new Date();
-        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        
+        // 12-Hour Format (AM/PM රහිතව පිරිසිදුව)
+        let hours = now.getHours();
+        let minutes = now.getMinutes();
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
         const getIconType = (code) => {
             if ([0].includes(code)) return 'sunny';
             if ([1, 2, 3, 45, 48].includes(code)) return 'cloudy';
-            if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 85, 86].includes(code)) return 'rain';
+            if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rain';
             if ([95, 96, 99].includes(code)) return 'thunder';
             return 'cloudy';
         };
@@ -30,7 +37,7 @@ app.get('/render.png', async (req, res) => {
 
         let currentCondition = "Clear";
         if ([95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
-        else if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 85, 86].includes(currentCode)) currentCondition = "Rain";
+        else if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
         else if ([1, 2, 3, 45, 48].includes(currentCode)) currentCondition = "Cloudy";
 
         const hourlyForecast = [];
@@ -42,7 +49,7 @@ app.get('/render.png', async (req, res) => {
 
         for(let i=0; i<4; i++) {
             const index = currentHourIndex + i;
-            let timeLabel = `${index}:00`;
+            let timeLabel = `${index % 12 || 12}:00`;
             if(i === 0) timeLabel = "Now";
             
             hourlyForecast.push({
@@ -53,22 +60,12 @@ app.get('/render.png', async (req, res) => {
             });
         }
 
-        const data = {
-            time: timeStr, date: dateStr, location: "KADAWATHA",
-            currentTemp: `${Math.round(currentTemp)}°`,
-            condition: currentCondition, feelsLike: `${Math.round(feelsLike)}°`,
-            hourly: hourlyForecast
-        };
-
-        // පහල තීරුවේ HTML කොටස වෙන වෙනම ලස්සනට සකස් කරගැනීම (Bypassing syntax bugs)
         let hourlyHtml = "";
-        for(let i = 0; i < data.hourly.length; i++) {
-            let h = data.hourly[i];
+        for(let i = 0; i < hourlyForecast.length; i++) {
+            let h = hourlyForecast[i];
             let svgIcon = `<svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
-            if (h.type === 'thunder') {
-                svgIcon = `<svg class="icon-svg red" viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58M13 10l-3 5h4l-3 5"/></svg>`;
-            } else if (h.type === 'rain') {
-                svgIcon = `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16v4" class="red"/><path d="M12 16v4" class="red"/></svg>`;
+            if (h.type === 'thunder' || h.type === 'rain') {
+                svgIcon = `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16v4"/><path d="M12 16v4"/></svg>`;
             }
             
             hourlyHtml += `
@@ -76,7 +73,7 @@ app.get('/render.png', async (req, res) => {
                     <div class="h-time">${h.time}</div>
                     <div class="h-temp">${h.temp}</div>
                     ${svgIcon}
-                    <div class="h-pop red">${h.pop}</div>
+                    <div class="h-pop">${h.pop}</div>
                 </div>
             `;
         }
@@ -88,7 +85,6 @@ app.get('/render.png', async (req, res) => {
             <style>
                 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; font-smoothing: none; }
                 body { width: 250px; height: 122px; background: #FFF; color: #000; overflow: hidden; display: flex; flex-direction: column; padding: 5px; justify-content: space-between; }
-                .red { color: #FF0000; fill: #FF0000; }
                 .top-panel { display: flex; justify-content: space-between; align-items: stretch; height: 52px; border-bottom: 2px solid #000; padding-bottom: 3px; }
                 .weather-status-box { width: 120px; display: flex; flex-direction: column; justify-content: space-between; }
                 .main-weather-row { display: flex; align-items: center; gap: 4px; }
@@ -96,13 +92,13 @@ app.get('/render.png', async (req, res) => {
                 .cond-text { font-size: 10px; font-weight: bold; line-height: 11px; }
                 .loc-tag { font-size: 8px; font-weight: 900; color: #555; text-transform: uppercase; margin-top: 1px; }
                 .clock-box { width: 115px; text-align: right; display: flex; flex-direction: column; justify-content: center; border-left: 1px dashed #000; padding-left: 4px; }
-                .time { font-size: 28px; font-weight: 900; line-height: 26px; }
-                .date { font-size: 9px; font-weight: 900; margin-top: 1px; }
+                .time { font-size: 28px; font-weight: 900; line-height: 26px; color: #000; }
+                .date { font-size: 9px; font-weight: 900; margin-top: 1px; color: #000; }
                 .forecast-container { display: flex; justify-content: space-between; height: 56px; padding-top: 4px; }
                 .hour-col { width: 58px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
                 .h-time { font-size: 8px; font-weight: bold; color: #555; }
                 .h-temp { font-size: 11px; font-weight: 900; }
-                .h-pop { font-size: 9px; font-weight: 900; }
+                .h-pop { font-size: 9px; font-weight: 900; color: #000; }
                 .icon-svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2.5; fill: none; }
             </style>
         </head>
@@ -111,11 +107,14 @@ app.get('/render.png', async (req, res) => {
                 <div class="weather-status-box">
                     <div class="main-weather-row">
                         <div class="main-temp">${data.currentTemp}</div>
-                        <div class="cond-text"><div class="red">${data.condition}</div><div>Feels ${data.feelsLike}</div></div>
+                        <div class="cond-text"><div>${data.condition}</div><div>Feels ${data.feelsLike}</div></div>
                     </div>
                     <div class="loc-tag">${data.location}</div>
                 </div>
-                <div class="clock-box"><div class="time">${data.time}</div><div class="date red">${data.date}</div></div>
+                <div class="clock-box">
+                    <div class="time">${data.time}</div>
+                    <div class="date">${data.date}</div>
+                </div>
             </div>
             <div class="forecast-container">
                 ${hourlyHtml}
@@ -148,4 +147,4 @@ app.get('/render.png', async (req, res) => {
 
 app.get('/', (req, res) => res.send("Dashboard active"));
 
-app.listen(PORT, () => console.log(`Docker Web Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log(`Docker Monochrome active on port ${PORT}`));
