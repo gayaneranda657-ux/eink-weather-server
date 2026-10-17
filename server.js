@@ -24,17 +24,21 @@ app.get('/render.png', async (req, res) => {
         
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
-        // WMO Codes නිවැරදිව හඳුනාගන්නා ශ්‍රිතය
+        // 2026 නිල WMO Codes ලිස්ට් එක හරියටම ඇතුළත් කිරීම
         const getIconSvg = (code, nightMode) => {
-            if ([71, 73, 75, 77, 85, 86, 95, 96, 99].includes(code)) {
-                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58M13 10l-3 5h4l-3 5"/></svg>`; // Thunder
+            // Thunderstorm (ගිගුරුම් සහිත වැසි කේත: 95, 96, 99)
+            if ([95, 96, 99].includes(code)) {
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58M13 10l-3 5h4l-3 5"/></svg>`;
             }
+            // Rain / Drizzle / Shower (වැසි කේත: 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82)
             if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) {
-                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16v4"/><path d="M12 16v4"/></svg>`; // Rain
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16v4"/><path d="M12 16v4"/></svg>`;
             }
+            // Cloudy / Fog (වලාකුළු බරිත කේත: 1, 2, 3, 45, 48)
             if ([1, 2, 3, 45, 48].includes(code)) {
-                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/></svg>`; // Cloudy
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/></svg>`;
             }
+            // Clear (පිරිසිදු අහස: 0)
             if (nightMode) {
                 return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`; // Moon
             }
@@ -46,11 +50,10 @@ app.get('/render.png', async (req, res) => {
         const feelsLike = wData.current ? wData.current.apparent_temperature : currentTemp;
 
         let currentCondition = "Clear";
-        if ([71, 73, 75, 77, 85, 86, 95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
+        if ([95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
         else if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
         else if ([1, 2, 3, 45, 48].includes(currentCode)) currentCondition = "Cloudy";
 
-        // වත්මන් කාලගුණයට අදාළ Icon එක
         const currentIconSvg = getIconSvg(currentCode, isNight);
 
         const hourlyForecast = [];
@@ -76,7 +79,6 @@ app.get('/render.png', async (req, res) => {
             });
         }
 
-        // ප්‍රධාන data object එක (මුලින්ම හදාගැනීම)
         const data = {
             time: timeStr, date: dateStr, location: "KADAWATHA",
             currentTemp: `${Math.round(currentTemp)}°`,
@@ -84,7 +86,6 @@ app.get('/render.png', async (req, res) => {
             hourly: hourlyForecast
         };
 
-        // පහල තීරුවේ HTML කොටස (data object එක සෑදීමෙන් පසු)
         let hourlyHtml = "";
         for(let i = 0; i < data.hourly.length; i++) {
             let h = data.hourly[i];
@@ -169,4 +170,4 @@ app.get('/render.png', async (req, res) => {
 
 app.get('/', (req, res) => res.send("Dashboard active"));
 
-app.listen(PORT, () => console.log(`Docker Web Engine active on port ${PORT}`));
+app.listen(PORT, () => console.log([]));
