@@ -24,25 +24,21 @@ app.get('/render.png', async (req, res) => {
         
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
-        // 2026 Open-Meteo WMO Codes නිවැරදිව හඳුනාගන්නා ශ්‍රිතය (Icon Router)
+        // WMO Codes නිවැරදිව හඳුනාගන්නා ශ්‍රිතය
         const getIconSvg = (code, nightMode) => {
-            // Thunderstorm (ගිගුරුම් සහිත වැසි)
-            if ([95, 96, 99].includes(code)) {
-                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58M13 10l-3 5h4l-3 5"/></svg>`;
+            if ([71, 73, 75, 77, 85, 86, 95, 96, 99].includes(code)) {
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58M13 10l-3 5h4l-3 5"/></svg>`; // Thunder
             }
-            // Rain / Drizzle / Shower (වැසි තත්ත්වයන්)
             if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) {
-                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16v4"/><path d="M12 16v4"/></svg>`;
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16v4"/><path d="M12 16v4"/></svg>`; // Rain
             }
-            // Cloudy / Fog (වලාකුළු බරිත)
             if ([1, 2, 3, 45, 48].includes(code)) {
-                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/></svg>`;
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/></svg>`; // Cloudy
             }
-            // Clear (පිරිසිදු අහස - රෑට හඳ, දවලට ඉර)
             if (nightMode) {
-                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`; // Moon Icon
+                return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`; // Moon
             }
-            return `<svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`; // Sun Icon
+            return `<svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`; // Sun
         };
 
         const currentTemp = wData.current ? wData.current.temperature_2m : 26;
@@ -50,11 +46,11 @@ app.get('/render.png', async (req, res) => {
         const feelsLike = wData.current ? wData.current.apparent_temperature : currentTemp;
 
         let currentCondition = "Clear";
-        if ([95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
-        else if ([51, 53, 55, 61, 63, 65, 80, 81].includes(currentCode)) currentCondition = "Rain";
-        else if ([1, 2, 3, 45].includes(currentCode)) currentCondition = "Cloudy";
+        if ([71, 73, 75, 77, 85, 86, 95, 96, 99].includes(currentCode)) currentCondition = "Thunder";
+        else if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(currentCode)) currentCondition = "Rain";
+        else if ([1, 2, 3, 45, 48].includes(currentCode)) currentCondition = "Cloudy";
 
-        // වත්මන් කාලගුණයට අදාළ නිවැරදිම Icon එක තේරීම
+        // වත්මන් කාලගුණයට අදාළ Icon එක
         const currentIconSvg = getIconSvg(currentCode, isNight);
 
         const hourlyForecast = [];
@@ -69,7 +65,6 @@ app.get('/render.png', async (req, res) => {
             let timeLabel = `${index % 12 || 12}:00`;
             if(i === 0) timeLabel = "Now";
             
-            // Forecast එකේ එක එක පැයට රාත්‍රී කාලය වෙන වෙනම සෙවීම
             const targetHour = index % 24;
             const hourIsNight = (targetHour >= 18 || targetHour < 6);
 
@@ -81,9 +76,18 @@ app.get('/render.png', async (req, res) => {
             });
         }
 
+        // ප්‍රධාන data object එක (මුලින්ම හදාගැනීම)
+        const data = {
+            time: timeStr, date: dateStr, location: "KADAWATHA",
+            currentTemp: `${Math.round(currentTemp)}°`,
+            condition: currentCondition, feelsLike: `${Math.round(feelsLike)}°`,
+            hourly: hourlyForecast
+        };
+
+        // පහල තීරුවේ HTML කොටස (data object එක සෑදීමෙන් පසු)
         let hourlyHtml = "";
-        for(let i = 0; i < hourlyForecast.length; i++) {
-            let h = hourlyForecast[i];
+        for(let i = 0; i < data.hourly.length; i++) {
+            let h = data.hourly[i];
             hourlyHtml += `
                 <div class="hour-col">
                     <div class="h-time">${h.time}</div>
@@ -125,7 +129,7 @@ app.get('/render.png', async (req, res) => {
                     <div class="main-weather-row">
                         <div class="main-temp">${data.currentTemp}</div>
                         <div class="cond-text"><div>${data.condition}</div><div>Feels ${data.feelsLike}</div></div>
-                        <div class="current-icon">${currentIconSvg}</div> <!-- වම් පැත්තට අලුතින් එකතු කල Icon එක -->
+                        <div class="current-icon">${currentIconSvg}</div>
                     </div>
                     <div class="loc-tag">${data.location}</div>
                 </div>
@@ -165,4 +169,4 @@ app.get('/render.png', async (req, res) => {
 
 app.get('/', (req, res) => res.send("Dashboard active"));
 
-app.listen(PORT, () => console.log(`Docker Weather Framework active on port ${PORT}`));
+app.listen(PORT, () => console.log(`Docker Web Engine active on port ${PORT}`));
