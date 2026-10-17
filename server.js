@@ -1,159 +1,57 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
 const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/render.png', async (req, res) => {
-    let browser = null;
     try {
+        // Fetch weather telemetry directly from Open-Meteo API
         const weatherUrl = `https://open-meteo.com`;
         const response = await axios.get(weatherUrl);
         const wData = response.data;
 
         const now = new Date();
+        
+        // Compute 12-Hour format variables cleanly
         let hours = now.getHours();
         let minutes = now.getMinutes();
-        const isNight = (hours >= 18 || hours < 6);
         hours = hours % 12;
-        hours = hours ? hours : 12;
+        hours = hours ? hours : 12; 
         const timeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
 
-        const getIconType = (code) => {
-            if ([95, 96, 99].includes(code)) return 'thunder';
-            if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rain';
-            if ([1, 2, 3, 45, 48].includes(code)) return 'cloudy';
-            return 'sunny';
-        };
-
-        const currentTemp = wData.current_weather ? wData.current_weather.temperature : 26;
+        const currentTemp = wData.current_weather ? Math.round(wData.current_weather.temperature) : 26;
         const currentCode = wData.current_weather ? wData.current_weather.weathercode : 0;
 
-        let currentCondition = "Clear";
-        const currentIconType = getIconType(currentCode);
-        if (currentIconType === 'thunder') currentCondition = "Thunder";
-        else if (currentIconType === 'rain') currentCondition = "Rain";
-        else if (currentIconType === 'cloudy') currentCondition = "Cloudy";
+        // Simplify conditions into clear internal states
+        let condition = 0; // 0 = Clear, 1 = Cloudy, 2 = Rain, 3 = Thunder
+        if ([95, 96, 99].includes(currentCode)) condition = 3;
+        else if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(currentCode)) condition = 2;
+        else if ([1, 2, 3, 45, 48].includes(currentCode)) condition = 1;
 
-        const getSvgIcon = (type, nightMode) => {
-            if (type === 'thunder') return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 8.58M13 10l-3 5h4l-3 5"/></svg>`;
-            if (type === 'rain') return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><path d="M8 16v4"/><path d="M12 16v4"/></svg>`;
-            if (type === 'cloudy') return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/></svg>`;
-            if (nightMode) return `<svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
-            return `<svg class="icon-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
-        };
-
-        const currentIconSvg = getSvgIcon(currentIconType, isNight);
-        const hourlyForecast = [];
         const currentHourIndex = now.getHours();
-        const hourlyCodes = wData.hourly ? (wData.hourly.weathercode || []) : [];
-        const hourlyTemps = wData.hourly ? (wData.hourly.temperature_2m || []) : [];
-        const hourlyPops = wData.hourly ? (wData.hourly.precipitation_probability || []) : [];
+        const hourlyTemps = wData.hourly ? wData.hourly.temperature_2m : [];
+        const hourlyPops = wData.hourly ? wData.hourly.precipitation_probability : [];
 
-        for(let i=0; i<4; i++) {
-            const index = currentHourIndex + i;
-            let timeLabel = `${index % 12 || 12}:00`;
-            if(i === 0) timeLabel = "Now";
-            const targetHour = index % 24;
-            const hourIsNight = (targetHour >= 18 || targetHour < 6);
-            const hIconType = getIconType(hourlyCodes[index] || 0);
+        // Build tight 4-hour timeline blocks
+        let h0_t = Math.round(hourlyTemps[currentHourIndex] || currentTemp);
+        let h0_p = hourlyPops[currentHourIndex] || 0;
+        let h1_t = Math.round(hourlyTemps[currentHourIndex + 1] || currentTemp);
+        let h1_p = hourlyPops[currentHourIndex + 1] || 0;
+        let h2_t = Math.round(hourlyTemps[currentHourIndex + 2] || currentTemp);
+        let h2_p = hourlyPops[currentHourIndex + 2] || 0;
+        let h3_t = Math.round(hourlyTemps[currentHourIndex + 3] || currentTemp);
+        let h3_p = hourlyPops[currentHourIndex + 3] || 0;
 
-            hourlyForecast.push({
-                time: timeLabel,
-                temp: `${Math.round(hourlyTemps[index] || currentTemp)}°`,
-                pop: `${hourlyPops[index] || 0}%`,
-                svg: getSvgIcon(hIconType, hourIsNight)
-            });
-        }
-
-        const data = {
-            time: timeStr, date: dateStr, location: "KADAWATHA",
-            currentTemp: `${Math.round(currentTemp)}°`,
-            condition: currentCondition, feelsLike: `${Math.round(currentTemp)}°`,
-            hourly: hourlyForecast
-        };
-
-        let hourlyHtml = "";
-        for(let i = 0; i < data.hourly.length; i++) {
-            let h = data.hourly[i];
-            hourlyHtml += `<div class="hour-col"><div class="h-time">${h.time}</div><div class="h-temp">${h.temp}</div>${h.svg}<div class="h-pop">${h.pop}</div></div>`;
-        }
-
-        const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; font-smoothing: none; }
-                body { width: 250px; height: 122px; background: #FFF; color: #000; overflow: hidden; display: flex; flex-direction: column; padding: 5px; justify-content: space-between; }
-                .top-panel { display: flex; justify-content: space-between; align-items: stretch; height: 54px; border-bottom: 2px solid #000; padding-bottom: 3px; }
-                .weather-status-box { width: 125px; display: flex; flex-direction: column; justify-content: space-between; }
-                .main-weather-row { display: flex; align-items: center; gap: 4px; justify-content: flex-start; }
-                .main-temp { font-size: 26px; font-weight: 900; line-height: 24px; letter-spacing: -1px; }
-                .cond-text { font-size: 10px; font-weight: bold; line-height: 11px; }
-                .loc-tag { font-size: 8px; font-weight: 900; color: #555; text-transform: uppercase; margin-top: 1px; }
-                .clock-box { width: 110px; text-align: right; display: flex; flex-direction: column; justify-content: center; border-left: 1px dashed #000; padding-left: 4px; }
-                .time { font-size: 28px; font-weight: 900; line-height: 26px; color: #000; }
-                .date { font-size: 9px; font-weight: 900; margin-top: 1px; color: #000; }
-                .forecast-container { display: flex; justify-content: space-between; height: 56px; padding-top: 4px; }
-                .hour-col { width: 58px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; }
-                .h-time { font-size: 8px; font-weight: bold; color: #555; }
-                .h-temp { font-size: 11px; font-weight: 900; }
-                .h-pop { font-size: 9px; font-weight: 900; color: #000; }
-                .icon-svg { width: 16px; height: 16px; stroke: #000; stroke-width: 2.5; fill: none; }
-                .current-icon { width: 20px; height: 20px; margin-left: 2px; display: flex; align-items: center; }
-            </style>
-        </head>
-        <body>
-            <div class="top-panel">
-                <div class="weather-status-box">
-                    <div class="main-weather-row">
-                        <div class="main-temp">${data.currentTemp}</div>
-                        <div class="cond-text"><div>${data.condition}</div><div>Feels ${data.feelsLike}</div></div>
-                        <div class="current-icon">${currentIconSvg}</div>
-                    </div>
-                    <div class="loc-tag">${data.location}</div>
-                </div>
-                <div class="clock-box"><div class="time">${data.time}</div><div class="date">${data.date}</div></div>
-            </div>
-            <div class="forecast-container">${hourlyHtml}</div>
-        </body>
-        </html>
-        `;
-
-        browser = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
-        const page = await browser.newPage();
-        await page.setViewport({ width: 250, height: 122 });
-        await page.setContent(htmlContent);
+        // Compile all target layout variables into a tiny raw data string
+        const payload = `TIME:${timeStr}|DATE:${dateStr}|TEMP:${currentTemp}|COND:${condition}|H0_T:${h0_t}|H0_P:${h0_p}%|H1_T:${h1_t}|H1_P:${h1_p}%|H2_T:${h2_t}|H2_P:${h2_p}%|H3_T:${h3_t}|H3_P:${h3_p}%`;
         
-        // 🌟 RAW 1-BIT MONOCHROME BUFFER GENERATION FOR GXEPD2
-        const rgbaBuffer = await page.screenshot({ type: 'png', raw: true }); 
-        
-        // Convert RGHA stream directly to E-Ink EPaper format byte matrix (3812 bytes total)
-        const epdBuffer = Buffer.alloc((250 * 122) / 8, 0xFF);
-        for (let y = 0; y < 122; y++) {
-            for (let x = 0; x < 250; x++) {
-                const idx = (y * 250 + x) * 4;
-                const r = rgbaBuffer[idx];
-                const g = rgbaBuffer[idx + 1];
-                const b = rgbaBuffer[idx + 2];
-                const brightness = (r + g + b) / 3;
-                
-                if (brightness < 128) { // Black pixel threshold mapping
-                    const byteIdx = Math.floor((y * 250 + x) / 8);
-                    const bitIdx = 7 - ((y * 250 + x) % 8);
-                    epdBuffer[byteIdx] &= ~(1 << bitIdx);
-                }
-            }
-        }
-
-        res.set('Content-Type', 'application/octet-stream');
-        res.send(epdBuffer);
+        res.set('Content-Type', 'text/plain');
+        res.send(payload);
     } catch (error) {
-        res.status(500).send("Render Error: " + error.message);
-    } finally { if (browser !== null) await browser.close(); }
+        res.status(500).send("API_ERROR");
+    }
 });
 
-app.get('/', (req, res) => res.send("Dashboard active"));
-app.listen(PORT, () => console.log(`Raw Buffer Matrix Active`));
+app.get('/', (req, res) => res.send("Active"));
+app.listen(PORT, () => console.log("Data Compiler Mode Active"));
