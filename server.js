@@ -87,6 +87,7 @@ app.get('/render.png', async (req, res) => {
             });
         }
 
+        // ප්‍රධාන data object එක (මුලින්ම හදාගැනීම)
         const data = {
             time: timeStr, date: dateStr, location: "KADAWATHA",
             currentTemp: `${Math.round(currentTemp)}°`,
@@ -94,6 +95,7 @@ app.get('/render.png', async (req, res) => {
             hourly: hourlyForecast
         };
 
+        // පහල තීරුවේ HTML කොටස (data object එක සෑදීමෙන් පසු)
         let hourlyHtml = "";
         for(let i = 0; i < data.hourly.length; i++) {
             let h = data.hourly[i];
@@ -178,4 +180,4 @@ app.get('/render.png', async (req, res) => {
 
 app.get('/', (req, res) => res.send("Dashboard active"));
 
-app.listen(PORT, () => console.log(`Docker Engine Sync Active on Port ${PORT}`));
+app.listen(PORT, () => console.log(`Docker Web Engine active on port ${PORT}`));
