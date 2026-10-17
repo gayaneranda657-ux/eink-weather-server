@@ -35,6 +35,7 @@ app.get('/render.png', async (req, res) => {
         // Open-Meteo current_weather ව්‍යුහයෙන් නිවැරදිව දත්ත එලියට ගැනීම
         const currentTemp = wData.current_weather ? wData.current_weather.temperature : 26;
         const currentCode = wData.current_weather ? wData.current_weather.weathercode : 0;
+        const currentCode = 65; // TESTING MODE: Forcing it to Rain
         const feelsLike = currentTemp; // Fallback structure configuration
 
         // වත්මන් කාලගුණ තත්ත්වය වචනයෙන් වෙන් කිරීම
