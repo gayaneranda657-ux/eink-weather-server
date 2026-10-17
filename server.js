@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 3000;
 app.get('/render.png', async (req, res) => {
     let browser = null;
     try {
-        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම (Current weather object query updated)
+        // 1. කාලගුණ දත්ත API එකෙන් ලබා ගැනීම
         const weatherUrl = `https://open-meteo.com`;
         const response = await axios.get(weatherUrl);
         const wData = response.data;
@@ -32,11 +32,11 @@ app.get('/render.png', async (req, res) => {
             return 'sunny'; // Code 0 (Clear)
         };
 
-        // Open-Meteo current_weather ව්‍යුහයෙන් නිවැරදිව දත්ත එලියට ගැනීම
         const currentTemp = wData.current_weather ? wData.current_weather.temperature : 26;
-        const currentCode = wData.current_weather ? wData.current_weather.weathercode : 0;
-        const currentCode = 65; // TESTING MODE: Forcing it to Rain
-        const feelsLike = currentTemp; // Fallback structure configuration
+        const feelsLike = currentTemp;
+
+        // 🌟 TESTING MODE: Forces the dashboard to display RAIN directly
+        const currentCode = 65; 
 
         // වත්මන් කාලගුණ තත්ත්වය වචනයෙන් වෙන් කිරීම
         let currentCondition = "Clear";
@@ -79,12 +79,15 @@ app.get('/render.png', async (req, res) => {
             
             const targetHour = index % 24;
             const hourIsNight = (targetHour >= 18 || targetHour < 6);
-            const hIconType = getIconType(hourlyCodes[index] || 0);
+            
+            // Force rain on the first column for test visual consistency
+            const hCode = (i === 0) ? 65 : (hourlyCodes[index] || 0);
+            const hIconType = getIconType(hCode);
 
             hourlyForecast.push({
                 time: timeLabel,
                 temp: `${Math.round(hourlyTemps[index] || currentTemp)}°`,
-                pop: `${hourlyPops[index] || 0}%`,
+                pop: (i === 0) ? "85%" : `${hourlyPops[index] || 0}%`,
                 svg: getSvgIcon(hIconType, hourIsNight)
             });
         }
@@ -182,4 +185,4 @@ app.get('/render.png', async (req, res) => {
 
 app.get('/', (req, res) => res.send("Dashboard active"));
 
-app.listen(PORT, () => console.log(`Docker Sync Framework Active`));
+app.listen(PORT, () => console.log(`Docker Live Build Sync Active`));
