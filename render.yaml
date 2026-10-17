@@ -1,0 +1,5 @@
+services:
+  - type: web
+    name: eink-weather-live
+    runtime: docker
+    plan: free
